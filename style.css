@@ -1,0 +1,122 @@
+/*
+* CORES:
+*
+* #000000
+* #fef5e4
+* #FFFFFF
+* #dee6f3
+* #bad2f6
+* #9dc2f6
+* #88ade3
+* #637fa7
+* #566d8e
+* #3a4a60
+* #2a2f4e
+* #252e3b
+* #1a1932
+*
+*/
+
+/* *** Tenho que melhorar esse css */ 
+
+.HeaderHomeWindow{
+    background-color: #b7d0f5;
+    color: #566d8e;
+    border-style: solid;
+    border-width: 0.4px;
+    border-color: #000000;
+    border-bottom-style: none;
+}
+
+.HomeWindow{
+    background-image: url("./assets/images/background3.png");
+    border-style: solid;
+    border-width: 0.4px;
+    border-color: #000000;
+    border-top-style: none;
+}
+
+.LabelButtonChooseGif{
+    font-size: 16px;
+    color: #566d8e;
+    font-style: initial;
+}
+
+.ButtonChooseGif button.file{
+    background-color: #637fa7;
+    color: #dee6f3;
+    font-weight: bold;
+    box-shadow: 2px 4px 5px 1px #566d8e;
+}
+
+.ButtonChooseGif button.file:hover{
+    background-color: #3a4a60;
+    color: #FFFFFF;
+}
+
+.ButtonChooseGif button.file:active{
+    background-color: #88ade3;
+    color: #3a4a60;
+}
+
+.ButtonPreview {
+    background-color: #637fa7;
+    color: #dee6f3;
+    font-weight: bold;
+    box-shadow: 2px 4px 5px 1px #566d8e;
+}
+
+.ButtonPreview:hover{
+    background-color: #3a4a60;
+    color: #FFFFFF;
+}
+
+.ButtonPreview:active{
+    background-color: #88ade3;
+    color: #3a4a60;
+}
+
+.ButtonSave {
+    background-color: #637fa7;
+    color: #dee6f3;
+    font-weight: bold;
+    box-shadow: 2px 4px 5px 1px #566d8e;
+}
+
+.ButtonSave:hover{
+    background-color: #3a4a60;
+    color: #FFFFFF;
+}
+
+.ButtonSave:active{
+    background-color: #88ade3;
+    color: #3a4a60;
+}
+
+.ErrorWindow{
+    font-weight: bold;
+    color: #dee6f3;
+    font-size: 16px;
+    border: 1px;
+    border-style: solid;
+    border-color: #000000;
+    border-radius: 2px;
+    background-color: #566d8e;
+}
+
+.ErrorWindow button{
+    background-color: #637fa7;
+    color: #dee6f3;
+    font-weight: bold;
+    font-size: 15px;
+}
+
+.ErrorWindow button:hover{
+    background-color: #3a4a60;
+    color: #FFFFFF;
+}
+
+.ErrorWindow button:active{
+    background-color: #88ade3;
+    color: #3a4a60;
+}
