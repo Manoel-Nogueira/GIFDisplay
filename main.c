@@ -1,21 +1,26 @@
 #include <gtk-3.0/gtk/gtk.h>
 #include <fontconfig/fontconfig.h>
 #include <cairo/cairo.h>
+#include <gst/gst.h>
 
 // Struct das configurações para o gif
 struct Gifsettings{
 
     GtkWidget *gif_path;
+    GtkWidget *music_path;
     GtkWidget *home_window;
     GtkWidget *gif_window;
+    GstElement *play_music;
     gint *x_pos;
     gint *y_pos;
 
 };
 
 GdkPixbufAnimation *gif = NULL;
+
 // Widget para exibir o gif
 GtkWidget *gif_display = NULL;
+
 // Iterador para iterar os frames do gif
 GdkPixbufAnimationIter *iter = NULL; 
 GTimeVal current_time;
@@ -118,13 +123,26 @@ gboolean Make_Transparent(GtkWidget *gif_window, cairo_t *cr, gpointer settings)
 
 }
 
+// Fazer loop da música
+gboolean Music_Loop(GstBus *bus, GstMessage *msg, gpointer data){
+
+    GstElement *play_music = GST_ELEMENT(data);
+
+    if(GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS){
+
+        // Voltando para o começo da música
+        gst_element_seek_simple(play_music, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE, 0);
+
+    }
+}
+
 // Janela do gif
 gboolean Gif_Window(GtkWidget *button_clicked, gpointer settings){
 
     // Fazendo o casting do tipo gpointer para o tipo struct Gifsettings
     struct Gifsettings *gif_settings = (struct Gifsettings *)settings;
 
-    // impede que mais de uma gif_window seja criada
+    // impede que mais de uma gif_window seja criada e que mais de uma música seja tocada ao clicar nos botões de pré-visualização e salvar
     if(gif_settings->gif_window != NULL){
 
         gtk_widget_destroy(gif_settings->gif_window);
@@ -133,7 +151,28 @@ gboolean Gif_Window(GtkWidget *button_clicked, gpointer settings){
 
     // Caminho do gif
     char *gif_path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(gif_settings->gif_path));
+    
+    // Caminho da música
+    char *music_path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(gif_settings->music_path));
+    
+    if(music_path){
 
+        char *uri = g_strdup(g_filename_to_uri(music_path, NULL, NULL));
+
+        // Parando a música anterior, caso exista
+        gst_element_set_state(gif_settings->play_music, GST_STATE_NULL);
+
+        // Setando a música selecionada e reproduzindo a música
+        g_object_set(gif_settings->play_music, "uri", uri, NULL);
+        gst_element_set_state(gif_settings->play_music, GST_STATE_PLAYING);
+
+        // Liberando a memória alocada pelo g_filename_to_uri e g_strdup
+        g_free(uri);
+        g_free(music_path);
+
+
+    }
+    
     // Verificando se o caminho do gif é válido
     if(!gif_path){
 
@@ -209,6 +248,9 @@ void Home_Window(GtkApplication *app, gpointer data){
     gif_settings.x_pos = 0;
     gif_settings.y_pos = 0;
 
+    // Criação do elemento playbin para tocar a música selecionada
+    gif_settings.play_music = gst_element_factory_make("playbin", "play_music");
+
     // Criação da janela
     GtkWidget *home_window = gtk_application_window_new(app);
     gtk_window_set_default_size(GTK_WINDOW(home_window), 336, 264);
@@ -248,7 +290,7 @@ void Home_Window(GtkApplication *app, gpointer data){
     gtk_style_context_add_class(context_home_window, "HomeWindow");
 
     // Legenda superior do botão para selecionar o gif
-    GtkWidget *label_button_choose_gif = gtk_label_new(" Select gif");
+    GtkWidget *label_button_choose_gif = gtk_label_new("Select gif");
     gtk_widget_override_font(label_button_choose_gif, font_desc);
     gtk_fixed_put(GTK_FIXED(container_fixed), label_button_choose_gif, 15, 19);
 
@@ -270,9 +312,32 @@ void Home_Window(GtkApplication *app, gpointer data){
     GtkStyleContext *context_button_choose_gif = gtk_widget_get_style_context(button_choose_gif);
     gtk_style_context_add_class(context_button_choose_gif, "ButtonChooseGif");
 
+    // Legenda superior do botão para selecionar a música
+    GtkWidget *label_button_choose_music = gtk_label_new("Select music");
+    gtk_widget_override_font(label_button_choose_music, font_desc);
+    gtk_fixed_put(GTK_FIXED(container_fixed), label_button_choose_music, 15, 73);
+
+    // Linkando a label_button_choose_music com a classe LabelButtonChooseMusic do css
+    GtkStyleContext *context_label_button_choose_music = gtk_widget_get_style_context(label_button_choose_music);
+    gtk_style_context_add_class(context_label_button_choose_music, "LabelButtonChooseMusic");
+
+    // Botão para selecionar a música
+    GtkWidget *button_choose_music = gtk_file_chooser_button_new("Select music", GTK_FILE_CHOOSER_ACTION_OPEN);
+    gtk_file_filter_add_mime_type(file_filter, "audio/mpeg");
+    gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(button_choose_music), "./musics");
+    gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(button_choose_music), "./musics/bailando.mp3");
+    gtk_file_chooser_button_set_width_chars(GTK_FILE_CHOOSER_BUTTON(button_choose_music), 14);
+    gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(button_choose_music), file_filter);
+    gtk_fixed_put(GTK_FIXED(container_fixed), button_choose_music, 15, 94);
+    gif_settings.music_path = button_choose_music;
+
+    // Linkando o button_choose_music com a classe ButtonChooseMusic do css
+    GtkStyleContext *context_button_choose_music = gtk_widget_get_style_context(button_choose_music);
+    gtk_style_context_add_class(context_button_choose_music, "ButtonChooseMusic");
+
     // Botão para a pré-visualização do gif
     GtkWidget *button_preview = gtk_button_new_with_label("Preview");
-    gtk_fixed_put(GTK_FIXED(container_fixed), button_preview, 15, 120);
+    gtk_fixed_put(GTK_FIXED(container_fixed), button_preview, 15, 160);
 
     // Sinal do clique no botão de pré-visualização do gif
     g_signal_connect(button_preview, "clicked", G_CALLBACK(Gif_Window), &gif_settings);
@@ -283,7 +348,7 @@ void Home_Window(GtkApplication *app, gpointer data){
 
     // Botão para fixar/salvar a posição do gif
     GtkWidget *button_save = gtk_button_new_with_label("Save");
-    gtk_fixed_put(GTK_FIXED(container_fixed), button_save, 122, 120);
+    gtk_fixed_put(GTK_FIXED(container_fixed), button_save, 122, 160);
 
     // Sinal do clique no botão de fixar/salvar do gif
     g_signal_connect(button_save, "clicked", G_CALLBACK(Gif_Window), &gif_settings);
@@ -291,6 +356,11 @@ void Home_Window(GtkApplication *app, gpointer data){
     // Linkando o button_save com a classe ButtonSave do css
     GtkStyleContext *context_button_save = gtk_widget_get_style_context(button_save);
     gtk_style_context_add_class(context_button_save, "ButtonSave");
+
+    // Loop da música
+    GstBus *bus = gst_element_get_bus(gif_settings.play_music);
+    gst_bus_add_watch(bus, Music_Loop, gif_settings.play_music);    
+    gst_object_unref(bus);
 
     // Sinal para fechar a janela
     g_signal_connect(home_window, "destroy", G_CALLBACK(Close_Window), NULL);
@@ -308,6 +378,7 @@ void Home_Window(GtkApplication *app, gpointer data){
 
 int main(int argc, char **argv){
 
+    gst_init(&argc, &argv);
     gtk_init(&argc, &argv);
 
     int status;

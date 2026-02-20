@@ -13,7 +13,7 @@
 
 currentFolderName := $(lastword $(notdir $(shell pwd)))
 compiledFile := $(currentFolderName).out
-CFLAGS := -O1 -Wall -Wextra -Wno-unused-parameter -pedantic-errors -std=c17 -Wno-missing-braces `pkg-config --cflags --libs gtk+-3.0 gdk-3.0 cairo` -lfontconfig
+CFLAGS := -O1 -Wall -Wextra -Wno-unused-parameter -pedantic-errors -std=c17 -Wno-missing-braces `pkg-config --cflags --libs gtk+-3.0 gdk-3.0 cairo gstreamer-1.0` -lfontconfig
 
 clean:
 	rm -f $(compiledFile)
