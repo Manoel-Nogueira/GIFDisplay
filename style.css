@@ -29,7 +29,7 @@
 }
 
 .HomeWindow{
-    background-image: url("./assets/images/background3.png");
+    background-image: url("./assets/images/background01.svg");
     border-style: solid;
     border-width: 0.4px;
     border-color: #000000;
@@ -48,6 +48,11 @@
     font-style: initial;
 }
 
+.LabelChooseScale{
+    font-size: 16px;
+    color: #566d8e;
+    font-style: initial;
+}
 
 .ButtonChooseGif button.file{
     background-color: #637fa7;
@@ -81,6 +86,25 @@
 .ButtonChooseMusic button.file:active{
     background-color: #88ade3;
     color: #3a4a60;
+}
+
+.SpinChooseScale{
+    background-color: #637fa7;
+    color: #dee6f3;
+    font-weight: bold;
+    box-shadow: 2px 4px 5px 1px #566d8e;
+}
+
+.SpinChooseScale button{
+    background-color: #637fa7;
+    color: #dee6f3;
+    font-weight: bold;
+    box-shadow: 2px 4px 5px 1px #566d8e;
+}
+
+.SpinChooseScale button:hover{
+    background-color: #3a4a60;
+    color: #FFFFFF;
 }
 
 .ButtonPreview {

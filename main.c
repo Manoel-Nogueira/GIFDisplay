@@ -7,25 +7,27 @@
 struct Gifsettings{
 
     GtkWidget *gif_path;
+    GtkWidget *gif_scale;
     GtkWidget *music_path;
     GtkWidget *home_window;
     GtkWidget *gif_window;
+    GtkWidget *drawing_area;
     GstElement *play_music;
-    gint *x_pos;
-    gint *y_pos;
+    GdkPixbuf *current_frame;
+    gdouble scale;
+    gint x_pos;
+    gint y_pos;
 
 };
 
 GdkPixbufAnimation *gif = NULL;
 
-// Widget para exibir o gif
-GtkWidget *gif_display = NULL;
+// // Widget para exibir o gif
+// GtkWidget *gif_display = NULL;
 
 // Iterador para iterar os frames do gif
 GdkPixbufAnimationIter *iter = NULL; 
 GTimeVal current_time;
-gint x_pos = 0;
-gint y_pos = 0;
 
 // Janela que mostra os erros
 void Error_Message(GtkWidget *window_parent, gchar *message){
@@ -73,8 +75,91 @@ void Close_Window(GtkWidget *home_window, gpointer close_window){
 
 }
 
+// Função para salvar a posição do gif durante o preview
+gboolean Save_Position(GtkWidget *gif_window, GdkEvent *event, gpointer settings){
+
+    // Fazendo o casting do tipo gpointer para o tipo struct Gifsettings
+    struct Gifsettings *gif_settings = (struct Gifsettings *)settings;
+
+    GtkWindow *window = (GtkWindow *)gif_settings->gif_window;
+
+    if(GTK_IS_WINDOW(window)){
+
+        // Obtém a posição atual da janela gif_window
+        gtk_window_get_position(window, &gif_settings->x_pos, &gif_settings->y_pos);
+
+    }
+
+    return FALSE;
+
+} 
+
+
 // Atualiza a animação/quadro do gif
-gboolean Gif_Update(gpointer settings){
+// gboolean Gif_Update(gpointer settings){
+//     if (iter == NULL || gif == NULL){
+
+//         return FALSE;
+
+//     }
+
+//     GtkWindow *gif_window = (GtkWindow *)settings;
+
+//     if(GTK_IS_WINDOW(gif_window)){
+
+//         // Obtém a posição atual da janela gif_window
+//         gtk_window_get_position(gif_window, &x_pos, &y_pos);
+
+//     }
+
+//     // Obtém o quadro atual da animação usando o iterador
+//     GdkPixbuf *frame = gdk_pixbuf_animation_iter_get_pixbuf(iter);
+
+//     // Guarda o tempo atual
+//     g_get_current_time(&current_time);
+
+//     // Exibe o quadro na janela
+//     if(frame && GTK_IS_WIDGET(gif_display)){
+
+//         gtk_image_set_from_pixbuf(GTK_IMAGE(gif_display), frame);
+
+//     }
+
+//     // Avança para o próximo quadro
+//     gdk_pixbuf_animation_iter_advance(iter, &current_time);
+
+//     return TRUE;
+
+// }
+
+// Desenha o quadro do gif na janela
+gboolean Draw_Frame(GtkWidget *gif_widget, cairo_t *cr, gpointer settings){
+
+    // Fazendo o casting do tipo gpointer para o tipo struct Gifsettings
+    struct Gifsettings *gif_settings = (struct Gifsettings *)settings;
+
+    if(!gif_settings->current_frame){
+
+        return FALSE;
+
+    }
+
+    // Mostrando o quadro atual do gif na janela usando Cairo
+    cairo_save(cr);
+    cairo_scale(cr, gif_settings->scale, gif_settings->scale);
+    gdk_cairo_set_source_pixbuf(cr, gif_settings->current_frame, 0, 0);
+    cairo_paint(cr);
+    cairo_restore(cr);
+
+    return FALSE;
+
+}
+
+// Atualiza o quadro do gif
+gboolean Next_Frame(gpointer settings){
+
+    // Fazendo o casting do tipo gpointer para o tipo struct Gifsettings
+    struct Gifsettings *gif_settings = (struct Gifsettings *)settings;
 
     if (iter == NULL || gif == NULL){
 
@@ -82,33 +167,21 @@ gboolean Gif_Update(gpointer settings){
 
     }
 
-    GtkWindow *gif_window = (GtkWindow *)settings;
-
-    if(GTK_IS_WINDOW(gif_window)){
-
-        // Obtém a posição atual da janela gif_window
-        gtk_window_get_position(gif_window, &x_pos, &y_pos);
-
-    }
-
-    // Obtém o quadro atual da animação usando o iterador
+    // Pega frame atual do gif
     GdkPixbuf *frame = gdk_pixbuf_animation_iter_get_pixbuf(iter);
+    gif_settings->current_frame = frame;
+
+    // Redesenha o quadro do gif na janela
+   gtk_widget_queue_draw(gif_settings->drawing_area);
 
     // Guarda o tempo atual
     g_get_current_time(&current_time);
-
-    // Exibe o quadro na janela
-    if(frame && GTK_IS_WIDGET(gif_display)){
-
-        gtk_image_set_from_pixbuf(GTK_IMAGE(gif_display), frame);
-
-    }
 
     // Avança para o próximo quadro
     gdk_pixbuf_animation_iter_advance(iter, &current_time);
 
     return TRUE;
-
+    
 }
 
 // Tornar a janela transparente
@@ -131,9 +204,10 @@ gboolean Music_Loop(GstBus *bus, GstMessage *msg, gpointer data){
     if(GST_MESSAGE_TYPE(msg) == GST_MESSAGE_EOS){
 
         // Voltando para o começo da música
-        gst_element_seek_simple(play_music, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE, 0);
+        gst_element_seek_simple(play_music, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH | GST_SEEK_FLAG_ACCURATE, 0.2);
 
     }
+
 }
 
 // Janela do gif
@@ -141,6 +215,9 @@ gboolean Gif_Window(GtkWidget *button_clicked, gpointer settings){
 
     // Fazendo o casting do tipo gpointer para o tipo struct Gifsettings
     struct Gifsettings *gif_settings = (struct Gifsettings *)settings;
+
+    // Pegando a scale do gif
+    gif_settings->scale = gtk_spin_button_get_value(GTK_SPIN_BUTTON(gif_settings->gif_scale));
 
     // impede que mais de uma gif_window seja criada e que mais de uma música seja tocada ao clicar nos botões de pré-visualização e salvar
     if(gif_settings->gif_window != NULL){
@@ -154,22 +231,13 @@ gboolean Gif_Window(GtkWidget *button_clicked, gpointer settings){
     
     // Caminho da música
     char *music_path = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(gif_settings->music_path));
-    
-    if(music_path){
+    char *uri = g_strdup(g_filename_to_uri(music_path, NULL, NULL));
 
-        char *uri = g_strdup(g_filename_to_uri(music_path, NULL, NULL));
+    // Verificando se o caminho da música é válido
+    if(!music_path){
 
-        // Parando a música anterior, caso exista
-        gst_element_set_state(gif_settings->play_music, GST_STATE_NULL);
-
-        // Setando a música selecionada e reproduzindo a música
-        g_object_set(gif_settings->play_music, "uri", uri, NULL);
-        gst_element_set_state(gif_settings->play_music, GST_STATE_PLAYING);
-
-        // Liberando a memória alocada pelo g_filename_to_uri e g_strdup
-        g_free(uri);
-        g_free(music_path);
-
+        Error_Message(gif_settings->home_window, "\n\nINVALID MUSIC PATH");
+        return FALSE; 
 
     }
     
@@ -180,6 +248,17 @@ gboolean Gif_Window(GtkWidget *button_clicked, gpointer settings){
         return FALSE; 
 
     }
+
+    // Parando a música anterior, caso exista
+    gst_element_set_state(gif_settings->play_music, GST_STATE_NULL);
+
+    // Setando a música selecionada e reproduzindo a música
+    g_object_set(gif_settings->play_music, "uri", uri, NULL);
+    gst_element_set_state(gif_settings->play_music, GST_STATE_PLAYING);
+
+    // Liberando a memória alocada pelo g_filename_to_uri e g_strdup
+    g_free(uri);
+    g_free(music_path);
 
     // Carregando o gif
     gif = gdk_pixbuf_animation_new_from_file(gif_path, NULL);
@@ -192,12 +271,15 @@ gboolean Gif_Window(GtkWidget *button_clicked, gpointer settings){
 
     // Criação da janela
     gif_settings->gif_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_default_size(GTK_WINDOW(gif_settings->gif_window), width, height);
-    gtk_window_move(GTK_WINDOW(gif_settings->gif_window), x_pos, y_pos);
+    gtk_window_set_default_size(GTK_WINDOW(gif_settings->gif_window), width * gif_settings->scale, height * gif_settings->scale);
+    gtk_window_move(GTK_WINDOW(gif_settings->gif_window), gif_settings->x_pos, gif_settings->y_pos);
     gtk_window_set_resizable(GTK_WINDOW(gif_settings->gif_window), FALSE);
     gtk_window_set_decorated(GTK_WINDOW(gif_settings->gif_window), FALSE);
     gtk_window_set_keep_above(GTK_WINDOW(gif_settings->gif_window), TRUE);
     gtk_widget_set_app_paintable(gif_settings->gif_window, TRUE);
+
+    // Sinal para pegar a posição do gif_window durante o preview
+    g_signal_connect(gif_settings->gif_window, "configure-event", G_CALLBACK(Save_Position), gif_settings);
 
     // Configuração do RGBA para ter a transparência
     GdkScreen *screen = gtk_widget_get_screen(gif_settings->gif_window);
@@ -214,8 +296,12 @@ gboolean Gif_Window(GtkWidget *button_clicked, gpointer settings){
 
     }
 
-    gif_display = gtk_image_new_from_pixbuf(gdk_pixbuf_animation_iter_get_pixbuf(iter));
-    gtk_container_add(GTK_CONTAINER(gif_settings->gif_window), gif_display);
+    // Criando a área de desenho para exibir o gif
+    //gif_display = gtk_image_new_from_pixbuf(gdk_pixbuf_animation_iter_get_pixbuf(iter));
+    gif_settings->drawing_area = gtk_drawing_area_new();
+    gtk_container_add(GTK_CONTAINER(gif_settings->gif_window), gif_settings->drawing_area);
+    g_signal_connect(gif_settings->drawing_area, "draw", G_CALLBACK(Draw_Frame), gif_settings);
+    //gtk_container_add(GTK_CONTAINER(drawing_area), gif_display);
 
     // Sinal para tornar a janela transparente
     g_signal_connect(G_OBJECT(gif_settings->gif_window), "draw", G_CALLBACK(Make_Transparent), NULL);
@@ -228,7 +314,7 @@ gboolean Gif_Window(GtkWidget *button_clicked, gpointer settings){
     }
 
     // Atualização do gif em ms (16.6 ms +- 60 FPS)
-    g_timeout_add(16.6, Gif_Update, gif_settings->gif_window);
+    g_timeout_add(16.6, Next_Frame, gif_settings);
 
     // Mostrar a janela
     gtk_widget_show_all(gif_settings->gif_window);
@@ -247,6 +333,9 @@ void Home_Window(GtkApplication *app, gpointer data){
     gif_settings.gif_window = NULL;
     gif_settings.x_pos = 0;
     gif_settings.y_pos = 0;
+
+    // Criação do ajuste para a escala do gif
+    GtkAdjustment *scale = gtk_adjustment_new(1.0, 0.1, 10.0, 0.1, 0.5, 0);
 
     // Criação do elemento playbin para tocar a música selecionada
     gif_settings.play_music = gst_element_factory_make("playbin", "play_music");
@@ -302,6 +391,7 @@ void Home_Window(GtkApplication *app, gpointer data){
     GtkWidget *button_choose_gif = gtk_file_chooser_button_new("Select gif", GTK_FILE_CHOOSER_ACTION_OPEN);
     GtkFileFilter *file_filter = gtk_file_filter_new();
     gtk_file_filter_add_mime_type(file_filter, "image/gif");
+    gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(button_choose_gif), "./gifs/shikanoko.gif");
     gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(button_choose_gif), "./gifs");
     gtk_file_chooser_button_set_width_chars(GTK_FILE_CHOOSER_BUTTON(button_choose_gif), 14);
     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(button_choose_gif), file_filter);
@@ -325,7 +415,7 @@ void Home_Window(GtkApplication *app, gpointer data){
     GtkWidget *button_choose_music = gtk_file_chooser_button_new("Select music", GTK_FILE_CHOOSER_ACTION_OPEN);
     gtk_file_filter_add_mime_type(file_filter, "audio/mpeg");
     gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER(button_choose_music), "./musics");
-    gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(button_choose_music), "./musics/bailando.mp3");
+    gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(button_choose_music), "./musics/shikanoko.mp3");
     gtk_file_chooser_button_set_width_chars(GTK_FILE_CHOOSER_BUTTON(button_choose_music), 14);
     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(button_choose_music), file_filter);
     gtk_fixed_put(GTK_FIXED(container_fixed), button_choose_music, 15, 94);
@@ -335,9 +425,28 @@ void Home_Window(GtkApplication *app, gpointer data){
     GtkStyleContext *context_button_choose_music = gtk_widget_get_style_context(button_choose_music);
     gtk_style_context_add_class(context_button_choose_music, "ButtonChooseMusic");
 
+    // Legenda superior do caompo de inserir a escala do gif
+    GtkWidget *label_choose_scale = gtk_label_new("Select Scale (1 = 100%)");
+    gtk_widget_override_font(label_choose_scale, font_desc);
+    gtk_fixed_put(GTK_FIXED(container_fixed), label_choose_scale, 15, 127);
+
+    // Linkando a label_choose_scale com a classe LabelChooseScale do css
+    GtkStyleContext *context_label_choose_scale = gtk_widget_get_style_context(label_choose_scale);
+    gtk_style_context_add_class(context_label_choose_scale, "LabelChooseScale");
+
+    // Campo spin para inserir a escala do gif
+    GtkWidget *spin_choose_scale = gtk_spin_button_new(scale, 0.1, 1);
+    gtk_widget_set_size_request(spin_choose_scale, 70, -1);
+    gtk_fixed_put(GTK_FIXED(container_fixed), spin_choose_scale, 15, 148);
+    gif_settings.gif_scale = spin_choose_scale;
+
+    // Linkando o spin_choose_scale com a classe SpinChooseScale do css
+    GtkStyleContext *context_spin_choose_scale = gtk_widget_get_style_context(spin_choose_scale);
+    gtk_style_context_add_class(context_spin_choose_scale, "SpinChooseScale");
+
     // Botão para a pré-visualização do gif
     GtkWidget *button_preview = gtk_button_new_with_label("Preview");
-    gtk_fixed_put(GTK_FIXED(container_fixed), button_preview, 15, 160);
+    gtk_fixed_put(GTK_FIXED(container_fixed), button_preview, 15, 207);
 
     // Sinal do clique no botão de pré-visualização do gif
     g_signal_connect(button_preview, "clicked", G_CALLBACK(Gif_Window), &gif_settings);
@@ -348,7 +457,7 @@ void Home_Window(GtkApplication *app, gpointer data){
 
     // Botão para fixar/salvar a posição do gif
     GtkWidget *button_save = gtk_button_new_with_label("Save");
-    gtk_fixed_put(GTK_FIXED(container_fixed), button_save, 122, 160);
+    gtk_fixed_put(GTK_FIXED(container_fixed), button_save, 122, 207);
 
     // Sinal do clique no botão de fixar/salvar do gif
     g_signal_connect(button_save, "clicked", G_CALLBACK(Gif_Window), &gif_settings);
